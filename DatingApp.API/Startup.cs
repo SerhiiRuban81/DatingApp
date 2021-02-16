@@ -16,6 +16,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Net;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Http;
+using DatingApp.API.Helpers;
 
 namespace DatingApp.API
 {
@@ -34,10 +38,11 @@ namespace DatingApp.API
             string connStr = Configuration.GetConnectionString("SqliteConStr");
             services.AddControllers();
             services.AddScoped<IAuthRepository, AuthRepository>();
-            services.AddCors(opt=>opt.AddDefaultPolicy(config=>
-            config.AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyMethod()));
+            services.AddCors();
+            // services.AddCors(opt=>opt.AddDefaultPolicy(config=>
+            // config.AllowAnyOrigin()
+            // .AllowAnyMethod()
+            // .AllowAnyMethod()));
             services.AddDbContext<MyDbContext>(options=>options.UseSqlite(connStr));
             services.AddSwaggerGen(c =>
             {
@@ -65,11 +70,27 @@ namespace DatingApp.API
                 app.UseSwagger();
                 app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "DatingApp.API v1"));
             }
+            else
+            {
+                app.UseExceptionHandler(builder=>{
+                    builder.Run(async context=>{
+                        context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                        var error = context.Features.Get<IExceptionHandlerFeature>();
+                        if(error!=null)
+                        {
+                            context.Response.AddApplicationError(error.Error.Message);
+                            await context.Response.WriteAsync(error.Error.Message);
+                        }
+                    });
 
+                });
+            }
             //app.UseHttpsRedirection();
 
             app.UseRouting();
-            app.UseCors();
+            //app.UseCors();
+            app.UseCors(options =>
+            options.AllowAnyOrigin().AllowAnyMethod(). AllowAnyHeader());
             app.UseAuthentication();
             app.UseAuthorization();
 
